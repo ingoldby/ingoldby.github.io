@@ -1,0 +1,321 @@
+<html class="BleAppClass"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BLE APP</title>
+</head>
+<body>
+<script>
+//BLE values
+var connectTrys = 0; retrys = 0;
+
+var bluetoothDevice, gattServer;
+var breastService, commandChar, imp1Char, imp2Char, sweepChar, accelChar;
+var busy, connected = false;
+
+
+function resetVariables() {
+    busy = false;
+    gattServer = null;
+    breastService = null;
+    commandChar = null;
+    connected = false;
+}
+
+function handleError(error) {
+    addLog(error);
+    resetVariables();
+    if (connectTrys < retrys) {
+        connectTrys++;
+        addLog("Reconnect " + connectTrys + " from " + retrys);
+        doConnect();
+    } else {
+        addLog("Something went wrong");
+        connectTrys = 0;
+    }
+}
+
+function onDisconnected() {
+    resetVariables();
+    addLog('Disconnected.');
+    setStatus("Disconnected.");
+}
+
+function connect() {
+    var deviceOptions = {
+        optionalServices: ['891004fe-079d-4df2-85b3-36b30be1e662',0x1800,0x180F, 0x180A, '1d14d6ee-fd63-4fa1-bfa4-8f47b42119f0'],
+        acceptAllDevices: true,
+    };
+
+    const hideUnknown = document.getElementById('hideUnknown').checked;
+    const namePrefix = document.getElementById('namePrefix').value;
+    if (hideUnknown) {
+        deviceOptions.acceptAllDevices = false;
+        deviceOptions.filters = [{ services: ['891004fe-079d-4df2-85b3-36b30be1e662']}];
+    }
+    if (namePrefix) {
+        deviceOptions.acceptAllDevices = false;
+        deviceOptions.filters = namePrefix.split(",")
+            .map((x) => ({ namePrefix: x }));
+    }
+
+    addClog(deviceOptions)
+
+    if (bluetoothDevice != null) bluetoothDevice.gatt.disconnect();
+    resetVariables();
+    addLog("Searching for devices");
+    connectTrys = 0;
+    navigator.bluetooth.requestDevice(deviceOptions).then(device => {
+        bluetoothDevice = device;
+        bluetoothDevice.addEventListener('gattserverdisconnected', onDisconnected);
+        addLog("Connecting to: " + bluetoothDevice.name);
+        doConnect();
+    }).catch(handleError);
+}
+
+function doConnect() {
+    bluetoothDevice.gatt.connect().then(server => {
+        addClog("Found GATT server");
+        gattServer = server;
+        return gattServer.getPrimaryService('891004fe-079d-4df2-85b3-36b30be1e662');
+    }).then(service => {
+        addClog("Found service");
+        detectBreast();
+    }).catch(handleError);
+}
+
+function detectBreast() {
+    gattServer.getPrimaryServices().then(services => {
+        breastEnabled = false;
+        let queue = Promise.resolve();
+        services.forEach(service => {
+            if(service.uuid == '891004fe-079d-4df2-85b3-36b30be1e662') breastEnabled = true;
+            queue = queue.then(_ => service.getCharacteristics().then(characteristics => {
+            addClog('> Service: ' + service.uuid);
+            characteristics.forEach(characteristic => {
+                addClog('>> Characteristic: ' + characteristic.uuid + ' ' + 
+                getSupportedProperties(characteristic));
+                });
+            }));
+        });
+        if (breastEnabled) {
+            addLog("Detected Nfant Breast");
+            setStatus("Detected Nfant Breast");
+            breastAction();
+        } else {
+            addLog("Connected");
+            setStatus("Connected")
+        }
+    }).catch(handleError);
+}
+
+function getSupportedProperties(characteristic) {
+  let supportedProperties = [];
+  for (const p in characteristic.properties) {
+    if (characteristic.properties[p] === true) {
+      supportedProperties.push(p);
+    }
+  }
+  return '[' + supportedProperties.join(', ') + ']';
+}
+
+function reConnect() {
+    disconnect();
+    addLog("Reconnect");
+    connectTrys = 0;
+    doConnect();
+}
+
+function disconnect() {
+    if (bluetoothDevice != null) bluetoothDevice.gatt.disconnect();
+}
+
+function breastAction() {
+    gattServer.getPrimaryService('891004fe-079d-4df2-85b3-36b30be1e662')
+        .then(service => {
+            addClog("Found Breast service");
+            breastService = service;
+            return breastService.getCharacteristic('2c928aca-cb93-40fe-b33a-6dae7db2eb2c');
+        }).then(characteristic => {
+            addClog("Found Write characteristic: Command");
+            commandChar = characteristic;
+            return breastService.getCharacteristic('425202f5-b945-46f4-a651-65413f4d85ea');
+        }).then(characteristic => {
+            addClog('Found Notify characteristic: Impedance1');
+            imp1Char = characteristic;
+            imp1Char.startNotifications().then(() => {
+                addClog("*Imp1 Notification started");
+                imp1Char.addEventListener('characteristicvaluechanged', handleImpNotifications);
+            });
+            return breastService.getCharacteristic('d4b591a9-bdef-44be-b8df-a38f655fe502');
+        }).then(characteristic => {
+            addClog('Found Notify characteristic: Impedance2');
+            imp2Char = characteristic;
+            imp2Char.startNotifications().then(() => {
+                addClog("*Imp2 Notification started");
+                imp2Char.addEventListener('characteristicvaluechanged', handleImpNotifications);
+            });
+            return breastService.getCharacteristic('ccb2549a-d5ed-40bf-b10a-8174c6a0b303');
+        }).then(characteristic => {
+            addClog('Found Notify characteristic: Sweep');
+            sweepChar = characteristic;
+            sweepChar.startNotifications().then(() => {
+                addClog("*Sweep Notification started");
+                sweepChar.addEventListener('characteristicvaluechanged', handleSweepNotifications);
+            });
+            return breastService.getCharacteristic('8fa34c5a-b3d2-4394-b5b1-a56bf7bce83e');
+        }).then(characteristic => {
+            addClog('Found Notify characteristic: Accel');
+            accelChar = characteristic;
+            connected = true;
+            return accelChar.startNotifications().then(() => {
+                addClog("*Accel Notification started");
+                accelChar.addEventListener('characteristicvaluechanged', handleAccelNotifications);
+            });
+        }).catch(handleError);
+
+}
+
+function handleImpNotifications(event)
+{
+  let value = event.target.value;
+  let a = [];
+  // Convert raw data bytes to hex values just for the sake of showing something.
+  // In the "real" world, you'd use data.getUint8, data.getUint16 or even
+  // TextDecoder to process raw data bytes.
+  for (let i = 0; i < value.byteLength; i++) {
+    a.push('0x' + ('00' + value.getUint8(i).toString(16)).slice(-2));
+  }
+  addClog('> ' + a.join(' '));
+  addLog('Impedance TS:' + value.getUint32(0, true) +
+         ' Curr[r]:' + value.getInt32(4,   true) +
+         ' Curr[i]:' + value.getInt32(8,   true) +
+         ' Volt[r]:' + value.getInt32(12,  true) +
+         ' Volt[i]:' + value.getInt32(16,  true) +
+         ' freq:'    + value.getUint16(20, true) );
+}
+
+function handleSweepNotifications(event)
+{
+  let value = event.target.value;
+  let a = [];
+  // Convert raw data bytes to hex values just for the sake of showing something.
+  // In the "real" world, you'd use data.getUint8, data.getUint16 or even
+  // TextDecoder to process raw data bytes.
+  for (let i = 0; i < value.byteLength; i++) {
+    a.push('0x' + ('00' + value.getUint8(i).toString(16)).slice(-2));
+  }
+  addClog('> ' + a.join(' '));
+  for(let i = value.byteLength/16-1; i >= 0; i--)
+    addLog(" " + (i*5000+5000) + "Hz:" +
+         ' Curr[r]:' + value.getInt32(16*i+0,  true) +
+         ' Curr[i]:' + value.getInt32(16*i+4,  true) +
+         ' Volt[r]:' + value.getInt32(16*i+8,  true) +
+         ' Volt[i]:' + value.getInt32(16*i+12, true) );
+  addLog("Sweep:")
+}
+
+function handleAccelNotifications(event)
+{
+  let value = event.target.value;
+  let a = [];
+  // Convert raw data bytes to hex values just for the sake of showing something.
+  // In the "real" world, you'd use data.getUint8, data.getUint16 or even
+  // TextDecoder to process raw data bytes.
+  for (let i = 0; i < value.byteLength; i++) {
+    a.push('0x' + ('00' + value.getUint8(i).toString(16)).slice(-2));
+  }
+  addClog('> ' + a.join(' '));
+  x = value.getInt16(4, true);
+  y = value.getInt16(6, true);
+  z = value.getInt16(8, true);
+  addLog('Accel TS:' + value.getUint32(0, true) +
+         ' X:' + x +
+         ' Y:' + y +
+         ' Z:' + z );
+}
+
+function enableStream() {
+    sendCommand("01");
+}
+
+function enableSweep() {
+    sendCommand("08");
+}
+
+function stopBioz() {
+    sendCommand("02");
+}
+
+var sendCommand = function(data)
+{
+    if(commandChar) {
+        commandChar.writeValue(hexToBytes(data)).then(() => {
+            addClog("> Command: 0x" + data);
+        }).catch(handleError);
+    } else {
+        addLog("No commandChar found");
+    }
+}
+
+
+
+
+function addLog(logTXT) {
+    var time = new Date();
+    var logString = time.toLocaleTimeString("en-US") + " : " + time.getTime().toString() + ": " + logTXT;
+    document.getElementById("log").innerHTML = logString + "<br>" + document.getElementById("log").innerHTML;
+    console.log(logTXT);
+}
+
+function addClog(logTXT) {
+    console.log(logTXT);
+}
+
+function clearLog() {
+    document.getElementById("log").innerHTML = "Log:<br>";
+}
+
+function setStatus(status) {
+    addClog("Status: " + status);
+    document.getElementById("status").innerHTML = "Status: " + status;
+}
+
+function decimalToHex(d, padding) {
+    var hex = Number(d).toString(16);
+    while (hex.length < 4) {
+        hex = "0" + hex;
+    }
+    return hex;
+}
+
+function hexToBytes(hex) {
+    for (var bytes = [], c = 0; c < hex.length; c += 2)
+        bytes.push(parseInt(hex.substr(c, 2), 16));
+    return new Uint8Array(bytes);
+}
+
+
+</script>
+  <H1>Breast BLE App</H1>
+  <H2>Status</H2>
+  <div id="status">Status: waiting for you to connect a device</div>
+  <hr>
+  <H2>Connection</H2>
+  <label for="hideUnknown">Hide unknown</label>
+  <input type="checkbox" id="hideUnknown" checked><br>
+  <label for="namePrefix">BLE device name prefix filter(s)</label>
+  <input type="text" id="namePrefix" value="" placeholder="Breast-"><br>
+  <button type="button" onclick="connect();"><b>Connect</b></button>
+  <button type="button" onclick="reConnect();">Reconnect</button>
+  <button type="button" onclick="disconnect();">Disconnect</button><br>
+  <hr>
+  <H2>Commands</H2>
+  <button type="button" onclick="enableStream();">Stream</button>
+  <button type="button" onclick="enableSweep();">Sweep</button>
+  <button type="button" onclick="stopBioz();">Stop</button>
+  <hr>
+  <H2>Log</H2>
+  <button type="button" onclick="clearLog();">Clear</button>
+  <pre><div id="log">Log:<br></div></pre>
+  <div id="result"></div>
+
+</body></html>
