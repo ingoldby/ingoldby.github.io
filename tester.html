@@ -204,7 +204,9 @@ function handleSweepNotifications(event)
     a.push('0x' + ('00' + value.getUint8(i).toString(16)).slice(-2));
   }
   addClog('> ' + a.join(' '));
+  //addLog("Sweep:")
   for(let i = value.byteLength/16-1; i >= 0; i--)
+  //for(let i = 0; i < value.byteLength/16; i++)
     addLog(" " + (i*5000+5000) + "Hz:" +
          ' Curr[r]:' + value.getInt32(16*i+0,  true) +
          ' Curr[i]:' + value.getInt32(16*i+4,  true) +
@@ -257,12 +259,14 @@ var sendCommand = function(data)
 }
 
 
-
+var log = "";
 
 function addLog(logTXT) {
     var time = new Date();
     var logString = time.toLocaleTimeString("en-US") + " : " + time.getTime().toString() + ": " + logTXT;
-    document.getElementById("log").innerHTML = logString + "<br>" + document.getElementById("log").innerHTML;
+    log = logString + "<br>" + log;
+    document.getElementById("log").innerHTML = log.substring(0, 50000);
+    //document.getElementById("log").innerHTML += logString + "<br>";
     console.log(logTXT);
 }
 
@@ -271,7 +275,12 @@ function addClog(logTXT) {
 }
 
 function clearLog() {
+    log = 'Log:<br>';
     document.getElementById("log").innerHTML = "Log:<br>";
+}
+
+function showLog() {
+    document.getElementById('log').innerHTML = log;
 }
 
 function setStatus(status) {
@@ -293,8 +302,30 @@ function hexToBytes(hex) {
     return new Uint8Array(bytes);
 }
 
+function showGraph() {
+    const xArray = [50,60,70,80,90,100,110,120,130,140,150];
+    const yArray = [7,8,8,9,9,9,10,11,14,14,15];
+
+    // Define Data
+    const data = [{
+        x: xArray,
+        y: yArray,
+        mode:"lines"
+    }];
+
+    // Define Layout
+    const layout = {
+        xaxis: {range: [40, 160], title: "Time"},
+        yaxis: {range: [5, 16], title: "Z"},  
+    title: "Impedance"
+    };
+
+    // Display using Plotly
+    Plotly.newPlot("Imp1", data, layout);
+}
 
 </script>
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
   <H1>Breast BLE App</H1>
   <H2>Status</H2>
   <div id="status">Status: waiting for you to connect a device</div>
@@ -313,8 +344,12 @@ function hexToBytes(hex) {
   <button type="button" onclick="enableSweep();">Sweep</button>
   <button type="button" onclick="stopBioz();">Stop</button>
   <hr>
+  <h2>Graphs</h2>
+  <div id="Imp1" style="width:100%;max-width:700px"></div>
+  <button type="button" onclick="showGraph();">Graph</button>
   <H2>Log</H2>
   <button type="button" onclick="clearLog();">Clear</button>
+  <button type="button" onClick="showLog();">Show All</button>
   <pre><div id="log">Log:<br></div></pre>
   <div id="result"></div>
 
