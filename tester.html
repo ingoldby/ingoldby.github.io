@@ -334,7 +334,8 @@ function addClog(logTXT) {
 
 function clearLog() {
     const date = new Date();
-    log = "Date: "+ date.toLocaleDateString("en-US")+"<br>"
+    log = "App Version: " + document.lastModified + "<br>" +
+    "Now: "+ date.toLocaleString("en-GB")+"<br>";
     document.getElementById("log").innerHTML = log;
 }
 
