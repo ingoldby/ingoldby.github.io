@@ -428,6 +428,12 @@ function resetGraph() {
     showGraph();
 }
 
+function startTimer()
+{
+    showGraph();
+    if(document.getElementById("auto-on").checked)
+        setTimeout(startTimer, 100);
+}
 </script>
 <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
 <style>
@@ -465,6 +471,8 @@ table, th, td {
   <button type="button" onclick="showGraph();">Show</button>
   <button type="button" onclick="hideGraph();">Hide</button>
   <button type="button" onclick="resetGraph();">Reset</button>
+  Auto Update: <input type="radio" id="auto-on" name="auto" value="on" onChange="startTimer();"><label for="on">ON</label>
+  <input type="radio" id="auto-off" name="auto" value="off" onChange="startTimer();" checked><label for="off">OFF</label>
   <table style='width:95%'>
     <tr>
       <td style='width:50%'><div id="ImpI" style="width:100%;max-width:800px"></div></td>
