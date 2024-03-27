@@ -434,6 +434,59 @@ function startTimer()
     if(document.getElementById("auto-on").checked)
         setTimeout(startTimer, 100);
 }
+
+function exportToCsv(filename, rows) 
+{
+    var processRow = function (row) {
+        var finalVal = '';
+        for (var j = 0; j < row.length; j++) {
+            var innerValue = row[j] === null ? '' : row[j].toString();
+            if (row[j] instanceof Date) {
+                innerValue = row[j].toLocaleString();
+            };
+            var result = innerValue.replace(/"/g, '""');
+            if (result.search(/("|,|\n)/g) >= 0)
+                result = '"' + result + '"';
+            if (j > 0)
+                finalVal += ',';
+            finalVal += result;
+        }
+        return finalVal + '\n';
+    };
+
+    var csvFile = '';
+    for (var i = 0; i < rows.length; i++) {
+        csvFile += processRow(rows[i]);
+    }
+
+    var blob = new Blob([csvFile], { type: 'text/csv;charset=utf-8;' });
+    if (navigator.msSaveBlob) { // IE 10+
+        navigator.msSaveBlob(blob, filename);
+    } else {
+        var link = document.createElement("a");
+        if (link.download !== undefined) { // feature detection
+            // Browsers that support HTML5 download attribute
+            var url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", filename);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    }
+}
+
+function exportData()
+{
+    const date = new Date();
+    name = "nfantB_Imp"+ date.getFullYear() + date.getMonth() + date.getDate() +"_"+date.getHours()+date.getMinutes()+".csv";
+    data = 
+    exportToCsv(name,data);
+    name = "nfantB_Acc"+ date.getFullYear() + date.getMonth() + date.getDate() +"_"+date.getHours()+date.getMinutes()+".csv";
+    exportToCsv(name,data);
+}
+
 </script>
 <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
 <style>
@@ -463,7 +516,7 @@ table, th, td {
   <input type="text" id='batt' value='Batt: ?%' readonly size=10>
   <br>
   Resistance = Zr*Rscl - Zi*Iscl + offset &nbsp; Z=V/I<br>
-  RealScale:<input type="text" id="Rscl" placeholder="RealScale" value="187.08576292" size=10>   
+  RealScale:<input type="text" id="Rscl" placeholder="RealScale" value="-187.08576292" size=10>   
   ImgScale:<input type="text" id="Iscl" placeholder="ImgScale" value="4.65253116"size=10>   
   Offset:<input type="text" id="Offset" placeholder="Offset" value="0"size=10>  
   <hr>
@@ -475,15 +528,16 @@ table, th, td {
   <input type="radio" id="auto-off" name="auto" value="off" onChange="startTimer();" checked><label for="off">OFF</label>
   <table style='width:95%'>
     <tr>
-      <td style='width:50%'><div id="ImpI" style="width:100%;max-width:800px"></div></td>
-      <td style='width:50%'><div id="ImpV" style="width:100%;max-width:800px"></div></td>
+      <td style='width:50%'><div id="ImpI" ></div></td>
+      <td style='width:50%'><div id="ImpV" ></div></td>
     </tr>
     <tr>
-      <td><div id="ImpR" style="width:100%;max-width:800px"></div></td>
-      <td><div id="AccXYZ" style="width:100%;max-width:800px"></div></td>
+      <td><div id="ImpR"></div></td>
+      <td><div id="AccXYZ"></div></td>
     </tr>
   </table>
   <H2>Log</H2>
+  <button type="button" onclick="exportData();" disabled>Export Data</button>
   <button type="button" onclick="clearLog();">Clear</button>
   <button type="button" onClick="showLog();">Show All</button>
   <pre><div id="log">Javascript not enabled!<br></div></pre>
