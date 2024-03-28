@@ -60,7 +60,7 @@ function connect() {
             .map((x) => ({ namePrefix: x }));
     }
 
-    addClog(deviceOptions)
+    addClog(JSON.stringify(deviceOptions));
 
     if (bluetoothDevice != null) bluetoothDevice.gatt.disconnect();
     resetVariables();
@@ -198,7 +198,7 @@ function handleImpNotifications(event)
   for (let i = 0; i < value.byteLength; i++) {
     a.push('0x' + ('00' + value.getUint8(i).toString(16)).slice(-2));
   }
-  addClog('> ' + a.join(' '));
+  addClog('I> ' + a.join(' '));
   t  = value.getUint32(0, true);
   ir = value.getInt32(4,   true);
   ii = value.getInt32(8,   true);
@@ -217,7 +217,7 @@ function handleImpNotifications(event)
   impVi.push(vi);
   impZr.push(zr);
   impZi.push(zi);
-  impR.push(zr*rscl-zi*iscl+offset);
+  impR.push(-zr*rscl-zi*iscl+offset);
   addLog('Impedance TS:' + t +
          ' Curr[r]:' + ir +
          ' Curr[i]:' + ii +
@@ -236,7 +236,7 @@ function handleSweepNotifications(event)
   for (let i = 0; i < value.byteLength; i++) {
     a.push('0x' + ('00' + value.getUint8(i).toString(16)).slice(-2));
   }
-  addClog('> ' + a.join(' '));
+  addClog('S> ' + a.join(' '));
   //addLog("Sweep:")
   for(let i = value.byteLength/16-1; i >= 0; i--)
   //for(let i = 0; i < value.byteLength/16; i++)
@@ -258,7 +258,7 @@ function handleAccelNotifications(event)
   for (let i = 0; i < value.byteLength; i++) {
     a.push('0x' + ('00' + value.getUint8(i).toString(16)).slice(-2));
   }
-  addClog('> ' + a.join(' '));
+  addClog('A> ' + a.join(' '));
   t = value.getUint32(0, true)
   x = value.getInt16(4, true);
   y = value.getInt16(6, true);
@@ -284,6 +284,10 @@ function enableSweep() {
 
 function stopBioz() {
     sendCommand("02");
+}
+
+function sendDiscon() {
+    sendCommand("03");
 }
 
 function getBatt() 
@@ -318,6 +322,7 @@ var sendCommand = function(data)
 
 
 var log = "";
+var dlog = "";
 
 function addLog(logTXT) {
     var time = new Date();
@@ -325,10 +330,12 @@ function addLog(logTXT) {
     log = logString + "<br>" + log;
     document.getElementById("log").innerHTML = log.substring(0, 50000);
     //document.getElementById("log").innerHTML += logString + "<br>";
-    console.log(logTXT);
+    addClog(logTXT);
 }
 
 function addClog(logTXT) {
+    var time = new Date();
+    dlog += time.getTime().toString() + ": " + logTXT + "\n";
     console.log(logTXT);
 }
 
@@ -337,10 +344,59 @@ function clearLog() {
     log = "App Version: " + document.lastModified + "<br>" +
     "Now: "+ date.toLocaleString("en-GB")+"<br>";
     document.getElementById("log").innerHTML = log;
+    addClog("Clear log");
 }
 
 function showLog() {
     document.getElementById('log').innerHTML = log;
+}
+
+function saveLog() {
+    const date = new Date();
+    filename = "nfantB_"+ date.getFullYear() + date.getMonth() + date.getDate() +"_"+date.getHours()+date.getMinutes()+"_log.txt";
+
+    var outlog = log.replace(/<br\s*[\/]?>/gi, "\n");
+
+    var blob = new Blob([outlog], { type: 'text/csv;charset=utf-8;' });
+    if (navigator.msSaveBlob) { // IE 10+
+        navigator.msSaveBlob(blob, filename);
+    } else {
+        var link = document.createElement("a");
+        if (link.download !== undefined) { // feature detection
+            // Browsers that support HTML5 download attribute
+            var url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", filename);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    }
+}
+
+function saveDebug() {
+    const date = new Date();
+    filename = "nfantB_"+ date.getFullYear() + date.getMonth() + date.getDate() +"_"+date.getHours()+date.getMinutes()+"_dbg.txt";
+
+    var outlog = dlog.replace(/<br\s*[\/]?>/gi, "\n");
+
+    var blob = new Blob([outlog], { type: 'text/csv;charset=utf-8;' });
+    if (navigator.msSaveBlob) { // IE 10+
+        navigator.msSaveBlob(blob, filename);
+    } else {
+        var link = document.createElement("a");
+        if (link.download !== undefined) { // feature detection
+            // Browsers that support HTML5 download attribute
+            var url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", filename);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    }
 }
 
 function setStatus(status) {
@@ -375,10 +431,15 @@ function showGraph() {
     { x: impT, y: impVr, mode:"lines", name:"Volt[r]", line:{color:'rgb(40,154,191)'}},
     { x: impT, y: impVi, mode:"lines", name:"Volt[i]", line:{color:'rgb(77,190,216)'}},
     ];
-    const dataR = [
+    const dataZ = [
     { x: impT, y: impZr, mode:"lines", name:"Z[r]", line:{color:'rgb(40,154,191)'}},
     { x: impT, y: impZi, mode:"lines", name:"Z[i]", line:{color:'rgb(77,190,216)'}},
-    { x: impT, y: impR,  mode:"lines", name:"R",    line:{color:'rgb(190,42,154)'}},
+    ];
+    const dataR = [
+    { x: impT, y: impR,  mode:"lines", name:"Sweep",    line:{color:'rgb(190,42,154)'}},
+    ];
+    const dataSwp = [
+
     ];
     const dataA = [
     { x: accT, y: accX,  mode:"lines", name:"X"},
@@ -397,10 +458,20 @@ function showGraph() {
         yaxis: { title: "Voltage"},  
     title: "Voltage"
     };
+    const layoutZ = {
+        xaxis: { title: "Time"},
+        yaxis: { title: "Z"},  
+    title: "Z"
+    };
     const layoutR = {
         xaxis: { title: "Time"},
         yaxis: { title: "Res"},  
     title: "Resistance"
+    };
+    const layoutSwp = {
+        xaxis: { title: "Time"},
+        yaxis: { title: "I/V sweep"},  
+    title: "Sweep (not implemented)"
     };
     const layoutA = {
         xaxis: { title: "Time"},
@@ -410,14 +481,18 @@ function showGraph() {
     // Display using Plotly
     Plotly.newPlot("ImpI", dataI, layoutI);
     Plotly.newPlot("ImpV", dataV, layoutV);
+    Plotly.newPlot("ImpZ", dataZ, layoutZ);
     Plotly.newPlot("ImpR", dataR, layoutR);
+    Plotly.newPlot("Sweep", dataSwp, layoutSwp);
     Plotly.newPlot("AccXYZ", dataA, layoutA);
 }
 
 function hideGraph() {
     Plotly.purge("ImpI");
     Plotly.purge("ImpV");
+    Plotly.purge("ImpZ");
     Plotly.purge("ImpR");
+    Plotly.purge("Sweep");
     Plotly.purge("AccXYZ");
 }
 
@@ -482,10 +557,18 @@ function exportData()
 {
     const date = new Date();
     name = "nfantB_Imp"+ date.getFullYear() + date.getMonth() + date.getDate() +"_"+date.getHours()+date.getMinutes()+".csv";
-    data = 
-    exportToCsv(name,data);
+    csvdata = [["T","Ir","Ii","Vr","Vi","Zr","Zi","R"]];
+    for(let ii=0; ii<impT.length; ii++) {
+        csvdata.push(Array.of(impT[ii],impIr[ii],impIi[ii],impVr[ii],impVi[ii],impZr[ii],impZi[ii],impR[ii]));
+    }
+    exportToCsv(name,csvdata);
+
     name = "nfantB_Acc"+ date.getFullYear() + date.getMonth() + date.getDate() +"_"+date.getHours()+date.getMinutes()+".csv";
-    exportToCsv(name,data);
+    csvdata = [["T","AccX","AccY","AccZ","AccSum",]];
+    for(let ii=0; ii<impT.length; ii++) {
+        csvdata.push(Array.of(accT[ii],accX[ii],accY[ii],accZ[ii],accSum[ii],));
+    }
+    exportToCsv(name,csvdata);
 }
 
 </script>
@@ -513,11 +596,12 @@ table, th, td {
   <button type="button" onclick="enableStream();">Stream</button>
   <button type="button" onclick="enableSweep();">Sweep</button>
   <button type="button" onclick="stopBioz();">Stop</button><br>
+  <button type="button" onclick="sendDiscon();">Send Disconnect</button><br>
   <button type="button" onclick="getBatt();">Batt %</button>
   <input type="text" id='batt' value='Batt: ?%' readonly size=10>
   <br>
-  Resistance = Zr*Rscl - Zi*Iscl + offset &nbsp; Z=V/I<br>
-  RealScale:<input type="text" id="Rscl" placeholder="RealScale" value="-187.08576292" size=10>   
+  Resistance = -Zr*Rscl - Zi*Iscl + offset &nbsp; Z=V/I<br>
+  RealScale:<input type="text" id="Rscl" placeholder="RealScale" value="187.08576292" size=10>   
   ImgScale:<input type="text" id="Iscl" placeholder="ImgScale" value="4.65253116"size=10>   
   Offset:<input type="text" id="Offset" placeholder="Offset" value="0"size=10>  
   <hr>
@@ -525,8 +609,9 @@ table, th, td {
   <button type="button" onclick="showGraph();">Show</button>
   <button type="button" onclick="hideGraph();">Hide</button>
   <button type="button" onclick="resetGraph();">Reset</button>
+  <br>
   Auto Update: <input type="radio" id="auto-on" name="auto" value="on" onChange="startTimer();"><label for="on">ON</label>
-  <input type="radio" id="auto-off" name="auto" value="off" onChange="startTimer();" checked><label for="off">OFF</label>
+  <input type="radio" id="auto-off" name="auto" value="off" onChange="startTimer();" checked><label for="off">OFF</label>&nbsp;&nbsp;(turn off to pan/zoom graphs)
   <table style='width:95%'>
     <tr>
       <td style='width:50%'><div id="ImpI" ></div></td>
@@ -534,11 +619,18 @@ table, th, td {
     </tr>
     <tr>
       <td><div id="ImpR"></div></td>
+      <td><div id="ImpZ"></div></td>
+    </tr>
+    <tr>
+      <td><div id="Sweep"></div></td>
       <td><div id="AccXYZ"></div></td>
     </tr>
   </table>
   <H2>Log</H2>
-  <button type="button" onclick="exportData();" disabled>Export Data</button>
+  <button type="button" onclick="exportData();">Export Data</button>
+  <button type="button" onClick="saveDebug();">Save Debug</button>
+  <button type="button" onClick="saveLog();">Save Log</button>
+  <br>
   <button type="button" onclick="clearLog();">Clear</button>
   <button type="button" onClick="showLog();">Show All</button>
   <pre><div id="log">Javascript not enabled!<br></div></pre>
