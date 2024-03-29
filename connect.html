@@ -25,6 +25,7 @@ function resetVariables() {
 
 function handleError(error) {
     addLog(error);
+    addLog(JSON.stringify(error));
     resetVariables();
     if (connectTrys < retrys) {
         connectTrys++;
@@ -44,7 +45,7 @@ function onDisconnected() {
 
 function connect() {
     var deviceOptions = {
-        optionalServices: ['891004fe-079d-4df2-85b3-36b30be1e662',0x1800,0x180F, 0x180A, '1d14d6ee-fd63-4fa1-bfa4-8f47b42119f0'],
+        //optionalServices: ['891004fe-079d-4df2-85b3-36b30be1e662',0x1800,0x180F, 0x180A, '1d14d6ee-fd63-4fa1-bfa4-8f47b42119f0'],
         acceptAllDevices: true,
     };
 
