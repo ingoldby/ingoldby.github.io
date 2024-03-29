@@ -60,7 +60,7 @@ function connect() {
             .map((x) => ({ namePrefix: x }));
     }*/
 
-    addClog(JSON.stringify(deviceOptions));
+    addLog(JSON.stringify(deviceOptions));
 
     if (bluetoothDevice != null) bluetoothDevice.gatt.disconnect();
     resetVariables();
