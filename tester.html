@@ -44,7 +44,7 @@ function onDisconnected() {
 
 function connect() {
     var deviceOptions = {
-        optionalServices: ['891004fe-079d-4df2-85b3-36b30be1e662',0x1800,0x180F, 0x180A, '1d14d6ee-fd63-4fa1-bfa4-8f47b42119f0'],
+        //optionalServices: ['891004fe-079d-4df2-85b3-36b30be1e662',0x1800,0x180F, 0x180A, '1d14d6ee-fd63-4fa1-bfa4-8f47b42119f0'],
         acceptAllDevices: true,
     };
 
@@ -54,13 +54,8 @@ function connect() {
         deviceOptions.acceptAllDevices = false;
         deviceOptions.filters = [{ services: ['891004fe-079d-4df2-85b3-36b30be1e662']}];
     }
-    if (namePrefix) {
-        deviceOptions.acceptAllDevices = false;
-        deviceOptions.filters = namePrefix.split(",")
-            .map((x) => ({ namePrefix: x }));
-    }
 
-    addClog(JSON.stringify(deviceOptions));
+    addLog(JSON.stringify(deviceOptions));
 
     if (bluetoothDevice != null) bluetoothDevice.gatt.disconnect();
     resetVariables();
@@ -70,27 +65,17 @@ function connect() {
         bluetoothDevice = device;
         bluetoothDevice.addEventListener('gattserverdisconnected', onDisconnected);
         addLog("Connecting to: " + bluetoothDevice.name);
-        doConnect();
-    }).catch(handleError);
-}
-
-function doConnect() {
-    bluetoothDevice.gatt.connect().then(server => {
+        return bluetoothDevice.gatt.connect();
+    }).then(server => {
         addClog("Found GATT server");
         gattServer = server;
-        return gattServer.getPrimaryService('891004fe-079d-4df2-85b3-36b30be1e662');
-    }).then(service => {
-        addClog("Found service");
-        detectBreast();
-    }).catch(handleError);
-}
-
-function detectBreast() {
-    gattServer.getPrimaryServices().then(services => {
+        return gattServer.getPrimaryServices();
+    }).then(services => {
         breastEnabled = false;
         let queue = Promise.resolve();
         services.forEach(service => {
-            if(service.uuid == '891004fe-079d-4df2-85b3-36b30be1e662') breastEnabled = true;
+            addClog('> Service: ' + service.uuid);
+            if(service.uuid.toLowerCase() == '891004fe-079d-4df2-85b3-36b30be1e662') breastEnabled = true;
             queue = queue.then(_ => service.getCharacteristics().then(characteristics => {
             addClog('> Service: ' + service.uuid);
             characteristics.forEach(characteristic => {
@@ -104,8 +89,9 @@ function detectBreast() {
             setStatus("Detected Nfant Breast");
             breastAction();
         } else {
-            addLog("Connected");
-            setStatus("Connected")
+            addLog("Breast service incorrect");
+            setStatus("Incorrect service");
+            disconnect();
         }
     }).catch(handleError);
 }
@@ -169,6 +155,7 @@ function breastAction() {
             addClog('Found Notify characteristic: Accel');
             accelChar = characteristic;
             connected = true;
+            setStatus("Connected to " + bluetoothDevice.name);
             return accelChar.startNotifications().then(() => {
                 addClog("*Accel Notification started");
                 accelChar.addEventListener('characteristicvaluechanged', handleAccelNotifications);
