@@ -43,6 +43,44 @@ function onDisconnected() {
     setStatus("Disconnected.");
 }
 
+function onStartButtonClick() {
+  let serviceUuid = document.querySelector('#service').value;
+  if (serviceUuid.startsWith('0x')) {
+    serviceUuid = parseInt(serviceUuid);
+  }
+
+  let characteristicUuid = document.querySelector('#characteristic').value;
+  if (characteristicUuid.startsWith('0x')) {
+    characteristicUuid = parseInt(characteristicUuid);
+  }
+
+  log('Requesting Bluetooth Device...');
+  navigator.bluetooth.requestDevice({filters: [{services: [serviceUuid]}]})
+  .then(device => {
+    log('Connecting to GATT Server...');
+    return device.gatt.connect();
+  })
+  .then(server => {
+    log('Getting Service...');
+    return server.getPrimaryService(serviceUuid);
+  })
+  .then(service => {
+    log('Getting Characteristic...');
+    return service.getCharacteristic(characteristicUuid);
+  })
+  .then(characteristic => {
+    myCharacteristic = characteristic;
+    return myCharacteristic.startNotifications().then(_ => {
+      log('> Notifications started');
+      myCharacteristic.addEventListener('characteristicvaluechanged',
+          handleNotifications);
+    });
+  })
+  .catch(error => {
+    log('Argh! ' + error);
+  });
+}
+
 function connect() {
     var deviceOptions = {
         //optionalServices: ['891004fe-079d-4df2-85b3-36b30be1e662',0x1800,0x180F, 0x180A, '1d14d6ee-fd63-4fa1-bfa4-8f47b42119f0'],
@@ -138,188 +176,10 @@ function breastAction() {
             addClog("Found Breast service");
             breastService = service;
             return breastService.getCharacteristic('2c928aca-cb93-40fe-b33a-6dae7db2eb2c');
-        }).then(characteristic => {
-            addClog("Found Write characteristic: Command");
-            commandChar = characteristic;
-            return breastService.getCharacteristic('425202f5-b945-46f4-a651-65413f4d85ea');
-        }).then(characteristic => {
-            addClog('Found Notify characteristic: Impedance1');
-            imp1Char = characteristic;
-            imp1Char.startNotifications().then(() => {
-                addClog("*Imp1 Notification started");
-                imp1Char.addEventListener('characteristicvaluechanged', handleImpNotifications);
-            });
-            return breastService.getCharacteristic('d4b591a9-bdef-44be-b8df-a38f655fe502');
-        }).then(characteristic => {
-            addClog('Found Notify characteristic: Impedance2');
-            imp2Char = characteristic;
-            imp2Char.startNotifications().then(() => {
-                addClog("*Imp2 Notification started");
-                imp2Char.addEventListener('characteristicvaluechanged', handleImpNotifications);
-            });
-            return breastService.getCharacteristic('ccb2549a-d5ed-40bf-b10a-8174c6a0b303');
-        }).then(characteristic => {
-            addClog('Found Notify characteristic: Sweep');
-            sweepChar = characteristic;
-            sweepChar.startNotifications().then(() => {
-                addClog("*Sweep Notification started");
-                sweepChar.addEventListener('characteristicvaluechanged', handleSweepNotifications);
-            });
-            return breastService.getCharacteristic('8fa34c5a-b3d2-4394-b5b1-a56bf7bce83e');
-        }).then(characteristic => {
-            addClog('Found Notify characteristic: Accel');
-            accelChar = characteristic;
-            connected = true;
-            return accelChar.startNotifications().then(() => {
-                addClog("*Accel Notification started");
-                accelChar.addEventListener('characteristicvaluechanged', handleAccelNotifications);
-            });
         }).catch(handleError);
 
 }
 
-function complex_div_R(z1r, z1i, z2r, z2i)
-{
-    // z1/z2 = (a+ib)/(c+di)
-    return (z1r*z2r+z1i*z2i)/(z2r*z2r+z2i*z2i);
-}
-
-function complex_div_I(z1r, z1i, z2r, z2i)
-{
-    // z1/z2 = (a+ib)/(c+di)
-    return (z1i*z2r-z1r*z2i)/(z2r*z2r+z2i*z2i);
-}
-function handleImpNotifications(event)
-{
-  let value = event.target.value;
-  let a = [];
-  // Convert raw data bytes to hex values just for the sake of showing something.
-  // In the "real" world, you'd use data.getUint8, data.getUint16 or even
-  // TextDecoder to process raw data bytes.
-  for (let i = 0; i < value.byteLength; i++) {
-    a.push('0x' + ('00' + value.getUint8(i).toString(16)).slice(-2));
-  }
-  addClog('I> ' + a.join(' '));
-  t  = value.getUint32(0, true);
-  ir = value.getInt32(4,   true);
-  ii = value.getInt32(8,   true);
-  vr = value.getInt32(12,  true);
-  vi = value.getInt32(16,  true);
-  f  = value.getUint16(20, true);
-  const rscl = document.getElementById('Rscl').value;
-  const iscl = document.getElementById('Iscl').value;
-  const offset = document.getElementById('Offset').value;
-  zr = complex_div_R(vr,vi,ir,ii);
-  zi = complex_div_I(vr,vi,ir,ii);
-  impT.push(t);
-  impIr.push(ir);
-  impIi.push(ii);
-  impVr.push(vr);
-  impVi.push(vi);
-  impZr.push(zr);
-  impZi.push(zi);
-  impR.push(-zr*rscl-zi*iscl+offset);
-  addLog('Impedance TS:' + t +
-         ' Curr[r]:' + ir +
-         ' Curr[i]:' + ii +
-         ' Volt[r]:' + vr +
-         ' Volt[i]:' + vi +
-         ' freq:'    + f );
-}
-
-function handleSweepNotifications(event)
-{
-  let value = event.target.value;
-  let a = [];
-  // Convert raw data bytes to hex values just for the sake of showing something.
-  // In the "real" world, you'd use data.getUint8, data.getUint16 or even
-  // TextDecoder to process raw data bytes.
-  for (let i = 0; i < value.byteLength; i++) {
-    a.push('0x' + ('00' + value.getUint8(i).toString(16)).slice(-2));
-  }
-  addClog('S> ' + a.join(' '));
-  //addLog("Sweep:")
-  for(let i = value.byteLength/16-1; i >= 0; i--)
-  //for(let i = 0; i < value.byteLength/16; i++)
-    addLog(" " + (i*5000+5000) + "Hz:" +
-         ' Curr[r]:' + value.getInt32(16*i+0,  true) +
-         ' Curr[i]:' + value.getInt32(16*i+4,  true) +
-         ' Volt[r]:' + value.getInt32(16*i+8,  true) +
-         ' Volt[i]:' + value.getInt32(16*i+12, true) );
-  addLog("Sweep:")
-}
-
-function handleAccelNotifications(event)
-{
-  let value = event.target.value;
-  let a = [];
-  // Convert raw data bytes to hex values just for the sake of showing something.
-  // In the "real" world, you'd use data.getUint8, data.getUint16 or even
-  // TextDecoder to process raw data bytes.
-  for (let i = 0; i < value.byteLength; i++) {
-    a.push('0x' + ('00' + value.getUint8(i).toString(16)).slice(-2));
-  }
-  addClog('A> ' + a.join(' '));
-  t = value.getUint32(0, true)
-  x = value.getInt16(4, true);
-  y = value.getInt16(6, true);
-  z = value.getInt16(8, true);
-  accT.push(t);
-  accX.push(x);
-  accY.push(y);
-  accZ.push(z);
-  accSum.push(Math.sqrt(x*x+y*y+z*z));
-  addLog('Accel TS:' + t +
-         ' X:' + x +
-         ' Y:' + y +
-         ' Z:' + z );
-}
-
-function enableStream() {
-    sendCommand("01");
-}
-
-function enableSweep() {
-    sendCommand("08");
-}
-
-function stopBioz() {
-    sendCommand("02");
-}
-
-function sendDiscon() {
-    sendCommand("03");
-}
-
-function getBatt() 
-{
-    if(gattServer) {
-        gattServer.getPrimaryService('battery_service')
-        .then(service => {
-            return service.getCharacteristic('battery_level');
-        })
-        .then(characteristic => {
-            return characteristic.readValue();
-        })
-        .then(value => {
-            let batteryLevel = value.getUint8(0);
-            addLog('Battery Level is ' + batteryLevel + '%');
-            document.getElementById("batt").value = 'Batt: '+batteryLevel+'%';
-        })
-        .catch(handleError);
-    } else { addLog("Device not connected"); }
-}
-
-var sendCommand = function(data)
-{
-    if(commandChar) {
-        commandChar.writeValueWithoutResponse(hexToBytes(data)).then(() => {
-            addClog("> Command: 0x" + data);
-        }).catch(handleError);
-    } else {
-        addLog("No commandChar found");
-    }
-}
 
 
 var log = "";
@@ -419,158 +279,7 @@ function hexToBytes(hex) {
     return new Uint8Array(bytes);
 }
 
-function showGraph() {
-    //const xArray = [50,60,70,80,90,100,110,120,130,140,150];
-    //const yArray = [7,8,8,9,9,9,10,11,14,14,15];
 
-    // Define Data
-    const dataI = [
-    { x: impT, y: impIr, mode:"lines", name:"Curr[r]", line:{color:'rgb(40,154,191)'}},
-    { x: impT, y: impIi, mode:"lines", name:"Curr[i]", line:{color:'rgb(77,190,216)'}},
-    ];
-    const dataV = [
-    { x: impT, y: impVr, mode:"lines", name:"Volt[r]", line:{color:'rgb(40,154,191)'}},
-    { x: impT, y: impVi, mode:"lines", name:"Volt[i]", line:{color:'rgb(77,190,216)'}},
-    ];
-    const dataZ = [
-    { x: impT, y: impZr, mode:"lines", name:"Z[r]", line:{color:'rgb(40,154,191)'}},
-    { x: impT, y: impZi, mode:"lines", name:"Z[i]", line:{color:'rgb(77,190,216)'}},
-    ];
-    const dataR = [
-    { x: impT, y: impR,  mode:"lines", name:"Sweep",    line:{color:'rgb(190,42,154)'}},
-    ];
-    const dataSwp = [
-
-    ];
-    const dataA = [
-    { x: accT, y: accX,  mode:"lines", name:"X"},
-    { x: accT, y: accY,  mode:"lines", name:"Y"},
-    { x: accT, y: accZ,  mode:"lines", name:"Z"},
-    { x: accT, y: accSum,  mode:"lines", name:"Sum"},
-    ];
-    // Define Layout
-    const layoutI = {
-        xaxis: { title: "Time"},
-        yaxis: { title: "Current"},  
-    title: "Current"
-    };
-    const layoutV = {
-        xaxis: { title: "Time"},
-        yaxis: { title: "Voltage"},  
-    title: "Voltage"
-    };
-    const layoutZ = {
-        xaxis: { title: "Time"},
-        yaxis: { title: "Z"},  
-    title: "Z"
-    };
-    const layoutR = {
-        xaxis: { title: "Time"},
-        yaxis: { title: "Res"},  
-    title: "Resistance"
-    };
-    const layoutSwp = {
-        xaxis: { title: "Time"},
-        yaxis: { title: "I/V sweep"},  
-    title: "Sweep (not implemented)"
-    };
-    const layoutA = {
-        xaxis: { title: "Time"},
-        yaxis: { title: "Accel"},  
-    title: "Accel"
-    };
-    // Display using Plotly
-    Plotly.newPlot("ImpI", dataI, layoutI);
-    Plotly.newPlot("ImpV", dataV, layoutV);
-    Plotly.newPlot("ImpZ", dataZ, layoutZ);
-    Plotly.newPlot("ImpR", dataR, layoutR);
-    Plotly.newPlot("Sweep", dataSwp, layoutSwp);
-    Plotly.newPlot("AccXYZ", dataA, layoutA);
-}
-
-function hideGraph() {
-    Plotly.purge("ImpI");
-    Plotly.purge("ImpV");
-    Plotly.purge("ImpZ");
-    Plotly.purge("ImpR");
-    Plotly.purge("Sweep");
-    Plotly.purge("AccXYZ");
-}
-
-function resetGraph() {
-    impT = [], impIr=[], impIi=[], impVr=[], impVi=[];
-    impZr = [], impZi = [], impR = [];
-    accT = [], accX = [], accY=[], accZ=[];
-    accSum = [];
-    showGraph();
-}
-
-function startTimer()
-{
-    showGraph();
-    if(document.getElementById("auto-on").checked)
-        setTimeout(startTimer, 100);
-}
-
-function exportToCsv(filename, rows) 
-{
-    var processRow = function (row) {
-        var finalVal = '';
-        for (var j = 0; j < row.length; j++) {
-            var innerValue = row[j] === null ? '' : row[j].toString();
-            if (row[j] instanceof Date) {
-                innerValue = row[j].toLocaleString();
-            };
-            var result = innerValue.replace(/"/g, '""');
-            if (result.search(/("|,|\n)/g) >= 0)
-                result = '"' + result + '"';
-            if (j > 0)
-                finalVal += ',';
-            finalVal += result;
-        }
-        return finalVal + '\n';
-    };
-
-    var csvFile = '';
-    for (var i = 0; i < rows.length; i++) {
-        csvFile += processRow(rows[i]);
-    }
-
-    var blob = new Blob([csvFile], { type: 'text/csv;charset=utf-8;' });
-    if (navigator.msSaveBlob) { // IE 10+
-        navigator.msSaveBlob(blob, filename);
-    } else {
-        var link = document.createElement("a");
-        if (link.download !== undefined) { // feature detection
-            // Browsers that support HTML5 download attribute
-            var url = URL.createObjectURL(blob);
-            link.setAttribute("href", url);
-            link.setAttribute("download", filename);
-            link.style.visibility = 'hidden';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        }
-    }
-}
-
-function exportData()
-{
-    const date = new Date();
-    name = "nfantB_Imp"+ date.getFullYear() + date.getMonth() + date.getDate() +"_"+date.getHours()+date.getMinutes()+".csv";
-    csvdata = [["T","Ir","Ii","Vr","Vi","Zr","Zi","R"]];
-    for(let ii=0; ii<impT.length; ii++) {
-        csvdata.push(Array.of(impT[ii],impIr[ii],impIi[ii],impVr[ii],impVi[ii],impZr[ii],impZi[ii],impR[ii]));
-    }
-    exportToCsv(name,csvdata);
-
-    name = "nfantB_Acc"+ date.getFullYear() + date.getMonth() + date.getDate() +"_"+date.getHours()+date.getMinutes()+".csv";
-    csvdata = [["T","AccX","AccY","AccZ","AccSum",]];
-    for(let ii=0; ii<impT.length; ii++) {
-        csvdata.push(Array.of(accT[ii],accX[ii],accY[ii],accZ[ii],accSum[ii],));
-    }
-    exportToCsv(name,csvdata);
-}
 
 </script>
 <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
@@ -592,43 +301,9 @@ table, th, td {
   <button type="button" onclick="connect();"><b>Connect</b></button>
   <button type="button" onclick="reConnect();">Reconnect</button>
   <button type="button" onclick="disconnect();">Disconnect</button><br>
+  <button type="button" onclick="onStartButtonClick();">Start</button><br>
   <hr>
-  <H2>Commands</H2>
-  <button type="button" onclick="enableStream();">Stream</button>
-  <button type="button" onclick="enableSweep();">Sweep</button>
-  <button type="button" onclick="stopBioz();">Stop</button><br>
-  <button type="button" onclick="sendDiscon();">Send Disconnect</button><br>
-  <button type="button" onclick="getBatt();">Batt %</button>
-  <input type="text" id='batt' value='Batt: ?%' readonly size=10>
-  <br>
-  Resistance = -Zr*Rscl - Zi*Iscl + offset &nbsp; Z=V/I<br>
-  RealScale:<input type="text" id="Rscl" placeholder="RealScale" value="187.08576292" size=10>   
-  ImgScale:<input type="text" id="Iscl" placeholder="ImgScale" value="4.65253116"size=10>   
-  Offset:<input type="text" id="Offset" placeholder="Offset" value="0"size=10>  
-  <hr>
-  <h2>Graphs</h2>
-  <button type="button" onclick="showGraph();">Show</button>
-  <button type="button" onclick="hideGraph();">Hide</button>
-  <button type="button" onclick="resetGraph();">Reset</button>
-  <br>
-  Auto Update: <input type="radio" id="auto-on" name="auto" value="on" onChange="startTimer();"><label for="on">ON</label>
-  <input type="radio" id="auto-off" name="auto" value="off" onChange="startTimer();" checked><label for="off">OFF</label>&nbsp;&nbsp;(turn off to pan/zoom graphs)
-  <table style='width:95%'>
-    <tr>
-      <td style='width:50%'><div id="ImpI" ></div></td>
-      <td style='width:50%'><div id="ImpV" ></div></td>
-    </tr>
-    <tr>
-      <td><div id="ImpR"></div></td>
-      <td><div id="ImpZ"></div></td>
-    </tr>
-    <tr>
-      <td><div id="Sweep"></div></td>
-      <td><div id="AccXYZ"></div></td>
-    </tr>
-  </table>
   <H2>Log</H2>
-  <button type="button" onclick="exportData();">Export Data</button>
   <button type="button" onClick="saveDebug();">Save Debug</button>
   <button type="button" onClick="saveLog();">Save Log</button>
   <br>
