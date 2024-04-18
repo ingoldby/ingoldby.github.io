@@ -121,6 +121,7 @@ function connect() {
         breastEnabled = false;
         let queue = Promise.resolve();
         services.forEach(service => {
+            addClog('> Service: ' + service.uuid);
             if(service.uuid == '891004fe-079d-4df2-85b3-36b30be1e662') breastEnabled = true;
             queue = queue.then(_ => service.getCharacteristics().then(characteristics => {
             addClog('> Service: ' + service.uuid);
