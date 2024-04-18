@@ -88,7 +88,6 @@ function handleNotifications(event) {
 
 
 //////////////////////////////////////////////////////////////////
-
 function connect() {
     var deviceOptions = {
         //optionalServices: ['891004fe-079d-4df2-85b3-36b30be1e662',0x1800,0x180F, 0x180A, '1d14d6ee-fd63-4fa1-bfa4-8f47b42119f0'],
@@ -122,7 +121,8 @@ function connect() {
         let queue = Promise.resolve();
         services.forEach(service => {
             addClog('> Service: ' + service.uuid);
-            if(service.uuid == '891004fe-079d-4df2-85b3-36b30be1e662') breastEnabled = true;
+            //if(service.uuid == '891004FE-079D-4DF2-85B3-36B30BE1E662') breastEnabled = true;
+            if(service.uuid.toLowerCase() == '891004fe-079d-4df2-85b3-36b30be1e662') breastEnabled = true;
             queue = queue.then(_ => service.getCharacteristics().then(characteristics => {
             addClog('> Service: ' + service.uuid);
             characteristics.forEach(characteristic => {
@@ -168,6 +168,7 @@ function breastAction() {
     gattServer.getPrimaryService('891004fe-079d-4df2-85b3-36b30be1e662')
         .then(service => {
             addClog("Found Breast service");
+            setStatus("Connected to " + bluetoothDevice.name);
             breastService = service;
             return breastService.getCharacteristic('2c928aca-cb93-40fe-b33a-6dae7db2eb2c');
         }).catch(handleError);
