@@ -2,7 +2,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>BLE APP</title>
 </head>
-<body onload="clearLog();showGraph();">
+<body onload="clearLog();showGraph();startLogTimer();">
 <script>
 //BLE values
 var connectTrys = 0; retrys = 0;
@@ -218,12 +218,17 @@ function handleImpNotifications(event)
   impZr.push(zr);
   impZi.push(zi);
   impR.push(-zr*rscl-zi*iscl+offset);
-  addLog('Impedance TS:' + t +
+  if(value.byteLength == 23)
+    cnt = value.getUint8(22);
+  else 
+    cnt = 0;
+    addLog('Impedance TS:' + t +
          ' Curr[r]:' + ir +
          ' Curr[i]:' + ii +
          ' Volt[r]:' + vr +
          ' Volt[i]:' + vi +
-         ' freq:'    + f );
+         ' freq:'    + f +
+         ' cnt:'     + cnt);
 }
 
 function handleSweepNotifications(event)
@@ -268,25 +273,44 @@ function handleAccelNotifications(event)
   accY.push(y);
   accZ.push(z);
   accSum.push(Math.sqrt(x*x+y*y+z*z));
+  if(value.byteLength == 11)
+    cnt = value.getUint8(10);
+  else 
+    cnt = 0;
   addLog('Accel TS:' + t +
-         ' X:' + x +
-         ' Y:' + y +
-         ' Z:' + z );
+         ' X:'   + x +
+         ' Y:'   + y +
+         ' Z:'   + z +
+         ' cnt:' + cnt);
 }
 
 function enableStream() {
+    addLog("Start Stream");
     sendCommand("01");
 }
 
+function onlyBioz() {
+    addLog("Only Bioz");
+    sendCommand("41");
+}
+
+function onlyAccel() {
+    addLog("Only Accel");
+    sendCommand("42");
+}
+
 function enableSweep() {
+    addLog("Start Sweep");
     sendCommand("08");
 }
 
 function stopBioz() {
+    addLog("Stop Bioz");
     sendCommand("02");
 }
 
 function sendDiscon() {
+    addLog("Send Disconnect Command");
     sendCommand("03");
 }
 
@@ -313,7 +337,7 @@ var sendCommand = function(data)
 {
     if(commandChar) {
         commandChar.writeValueWithoutResponse(hexToBytes(data)).then(() => {
-            addClog("> Command: 0x" + data);
+            addLog("> Command: 0x" + data);
         }).catch(handleError);
     } else {
         addLog("No commandChar found");
@@ -328,7 +352,7 @@ function addLog(logTXT) {
     var time = new Date();
     var logString = time.toLocaleTimeString("en-US") + " : " + time.getTime().toString() + ": " + logTXT;
     log = logString + "<br>" + log;
-    document.getElementById("log").innerHTML = log.substring(0, 50000);
+    //document.getElementById("log").innerHTML = log.substring(0, 50000);
     //document.getElementById("log").innerHTML += logString + "<br>";
     addClog(logTXT);
 }
@@ -347,8 +371,13 @@ function clearLog() {
     addClog("Clear log");
 }
 
+function startLogTimer() {
+    document.getElementById("log").innerHTML = dlog.substring(0, 50000);
+    setTimeout(startLogTimer, 100);
+}
+
 function showLog() {
-    document.getElementById('log').innerHTML = log;
+    document.getElementById('log').innerHTML = dlog;
 }
 
 function saveLog() {
@@ -504,11 +533,11 @@ function resetGraph() {
     showGraph();
 }
 
-function startTimer()
+function startGraphTimer()
 {
     showGraph();
     if(document.getElementById("auto-on").checked)
-        setTimeout(startTimer, 100);
+        setTimeout(startGraphTimer, 200);
 }
 
 function exportToCsv(filename, rows) 
@@ -596,10 +625,11 @@ table, th, td {
   <button type="button" onclick="enableStream();">Stream</button>
   <button type="button" onclick="enableSweep();">Sweep</button>
   <button type="button" onclick="stopBioz();">Stop</button><br>
-  <button type="button" onclick="sendDiscon();">Send Disconnect</button><br>
   <button type="button" onclick="getBatt();">Batt %</button>
-  <input type="text" id='batt' value='Batt: ?%' readonly size=10>
-  <br>
+  <input type="text" id='batt' value='Batt: ?%' readonly size=10><br>
+  <button type="button" onclick="onlyBioz();">Only Bioz</button>
+  <button type="button" onclick="onlyAccel();">Only Accel</button><br>
+  <button type="button" onclick="sendDiscon();">Send Disconnect</button><br>
   Resistance = -Zr*Rscl - Zi*Iscl + offset &nbsp; Z=V/I<br>
   RealScale:<input type="text" id="Rscl" placeholder="RealScale" value="187.08576292" size=10>   
   ImgScale:<input type="text" id="Iscl" placeholder="ImgScale" value="4.65253116"size=10>   
@@ -610,8 +640,8 @@ table, th, td {
   <button type="button" onclick="hideGraph();">Hide</button>
   <button type="button" onclick="resetGraph();">Reset</button>
   <br>
-  Auto Update: <input type="radio" id="auto-on" name="auto" value="on" onChange="startTimer();"><label for="on">ON</label>
-  <input type="radio" id="auto-off" name="auto" value="off" onChange="startTimer();" checked><label for="off">OFF</label>&nbsp;&nbsp;(turn off to pan/zoom graphs)
+  Auto Update: <input type="radio" id="auto-on" name="auto" value="on" onChange="startGraphTimer();"><label for="on">ON</label>
+  <input type="radio" id="auto-off" name="auto" value="off" onChange="startGraphTimer();" checked><label for="off">OFF</label>&nbsp;&nbsp;(turn off to pan/zoom graphs)
   <table style='width:95%'>
     <tr>
       <td style='width:50%'><div id="ImpI" ></div></td>
