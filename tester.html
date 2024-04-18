@@ -11,7 +11,8 @@ var bluetoothDevice, gattServer;
 var breastService, commandChar, imp1Char, imp2Char, sweepChar, accelChar;
 var busy, connected = false;
 
-var impT = [], impIr=[], impIi=[], impVr=[], impVi=[], impZr=[], impZi=[], impR=[];
+var impT = [],  impIr=[],  impIi=[],  impVr=[],  impVi=[],  impZr=[],  impZi=[],  impR=[];
+var impT2 = [], impIr2=[], impIi2=[], impVr2=[], impVi2=[], impZr2=[], impZi2=[], impR2=[];
 var accT = [], accX = [], accY=[], accZ=[], accSum=[];
 
 
@@ -178,6 +179,7 @@ function complex_div_I(z1r, z1i, z2r, z2i)
 function handleImpNotifications(event)
 {
   let value = event.target.value;
+  let dual  = event.target.uuid.toLowerCase() == 'd4b591a9-bdef-44be-b8df-a38f655fe502';
   let a = [];
   // Convert raw data bytes to hex values just for the sake of showing something.
   // In the "real" world, you'd use data.getUint8, data.getUint16 or even
@@ -185,7 +187,7 @@ function handleImpNotifications(event)
   for (let i = 0; i < value.byteLength; i++) {
     a.push('0x' + ('00' + value.getUint8(i).toString(16)).slice(-2));
   }
-  addClog('I> ' + a.join(' '));
+  addClog('I'+dual?2:1+'> ' + a.join(' '));
   t  = value.getUint32(0, true);
   ir = value.getInt32(4,   true);
   ii = value.getInt32(8,   true);
@@ -197,14 +199,26 @@ function handleImpNotifications(event)
   const offset = document.getElementById('Offset').value;
   zr = complex_div_R(vr,vi,ir,ii);
   zi = complex_div_I(vr,vi,ir,ii);
-  impT.push(t);
-  impIr.push(ir);
-  impIi.push(ii);
-  impVr.push(vr);
-  impVi.push(vi);
-  impZr.push(zr);
-  impZi.push(zi);
-  impR.push(-zr*rscl-zi*iscl+offset);
+  if(dual == 0) 
+  {
+    impT.push(t);
+    impIr.push(ir);
+    impIi.push(ii);
+    impVr.push(vr);
+    impVi.push(vi);
+    impZr.push(zr);
+    impZi.push(zi);
+    impR.push(-zr*rscl-zi*iscl+offset);
+  } else {
+    impT2.push(t);
+    impIr2.push(ir);
+    impIi2.push(ii);
+    impVr2.push(vr);
+    impVi2.push(vi);
+    impZr2.push(zr);
+    impZi2.push(zi);
+    impR2.push(-zr*rscl-zi*iscl+offset);
+  }
   if(value.byteLength == 23)
     cnt = value.getUint8(22);
   else 
@@ -286,6 +300,10 @@ function onlyAccel() {
     sendCommand("42");
 }
 
+function enableDual() {
+    addLog("Start Dual Stream");
+    sendCommand("04");
+}
 function enableSweep() {
     addLog("Start Sweep");
     sendCommand("08");
@@ -444,19 +462,20 @@ function showGraph() {
 
     // Define Data
     const dataI = [
-    { x: impT, y: impIr, mode:"lines", name:"Curr[r]", line:{color:'rgb(40,154,191)'}},
-    { x: impT, y: impIi, mode:"lines", name:"Curr[i]", line:{color:'rgb(77,190,216)'}},
+    { x: impT, y: impIr, mode:"lines", name:"Curr[r]", line:{color:'rgb(40 ,154,191)'}},
+    { x: impT, y: impIi, mode:"lines", name:"Curr[i]", line:{color:'rgb(77 ,190,216)'}},
     ];
     const dataV = [
-    { x: impT, y: impVr, mode:"lines", name:"Volt[r]", line:{color:'rgb(40,154,191)'}},
-    { x: impT, y: impVi, mode:"lines", name:"Volt[i]", line:{color:'rgb(77,190,216)'}},
+    { x: impT, y: impVr, mode:"lines", name:"Volt[r]", line:{color:'rgb(40 ,154,191)'}},
+    { x: impT, y: impVi, mode:"lines", name:"Volt[i]", line:{color:'rgb(77 ,190,216)'}},
     ];
     const dataZ = [
-    { x: impT, y: impZr, mode:"lines", name:"Z[r]", line:{color:'rgb(40,154,191)'}},
-    { x: impT, y: impZi, mode:"lines", name:"Z[i]", line:{color:'rgb(77,190,216)'}},
+    { x: impT, y: impZr, mode:"lines", name:"Z[r]", line:{color:'rgb(40 ,154,191)'}},
+    { x: impT, y: impZi, mode:"lines", name:"Z[i]", line:{color:'rgb(77 ,190,216)'}},
     ];
     const dataR = [
-    { x: impT, y: impR,  mode:"lines", name:"Sweep",    line:{color:'rgb(190,42,154)'}},
+    { x: impT,  y: impR,  mode:"lines", name:"Resistance LF",    line:{color:'rgb(190,42 ,154)'}},
+    { x: impT2, y: impR2, mode:"lines", name:"Resistance HF",    line:{color:'rgb(50 ,100,168)'}},
     ];
     const dataSwp = [
 
@@ -485,7 +504,7 @@ function showGraph() {
     };
     const layoutR = {
         xaxis: { title: "Time"},
-        yaxis: { title: "Res"},  
+        yaxis: { title: "Ohms"},  
     title: "Resistance"
     };
     const layoutSwp = {
@@ -499,18 +518,18 @@ function showGraph() {
     title: "Accel"
     };
     // Display using Plotly
-    Plotly.newPlot("ImpI", dataI, layoutI);
-    Plotly.newPlot("ImpV", dataV, layoutV);
-    Plotly.newPlot("ImpZ", dataZ, layoutZ);
+    //Plotly.newPlot("ImpI", dataI, layoutI);
+    //Plotly.newPlot("ImpV", dataV, layoutV);
+    //Plotly.newPlot("ImpZ", dataZ, layoutZ);
     Plotly.newPlot("ImpR", dataR, layoutR);
     Plotly.newPlot("Sweep", dataSwp, layoutSwp);
     Plotly.newPlot("AccXYZ", dataA, layoutA);
 }
 
 function hideGraph() {
-    Plotly.purge("ImpI");
-    Plotly.purge("ImpV");
-    Plotly.purge("ImpZ");
+    //Plotly.purge("ImpI");
+    //Plotly.purge("ImpV");
+    //Plotly.purge("ImpZ");
     Plotly.purge("ImpR");
     Plotly.purge("Sweep");
     Plotly.purge("AccXYZ");
@@ -519,6 +538,8 @@ function hideGraph() {
 function resetGraph() {
     impT = [], impIr=[], impIi=[], impVr=[], impVi=[];
     impZr = [], impZi = [], impR = [];
+    impT2 = [], impIr2=[], impIi2=[], impVr2=[], impVi2=[];
+    impZr2 = [], impZi2 = [], impR2 = [];
     accT = [], accX = [], accY=[], accZ=[];
     accSum = [];
     showGraph();
@@ -614,7 +635,8 @@ table, th, td {
   <hr>
   <H2>Commands</H2>
   <button type="button" onclick="enableStream();">Stream</button>
-  <button type="button" onclick="enableSweep();">Sweep</button>
+  <button type="button" onclick="enableDual();">Dual Stream</button>
+    <button type="button" onclick="enableSweep();">Sweep</button>
   <button type="button" onclick="stopBioz();">Stop</button><br>
   <button type="button" onclick="getBatt();">Batt %</button>
   <input type="text" id='batt' value='Batt: ?%' readonly size=10><br>
@@ -633,7 +655,10 @@ table, th, td {
   <br>
   Auto Update: <input type="radio" id="auto-on" name="auto" value="on" onChange="startGraphTimer();"><label for="on">ON</label>
   <input type="radio" id="auto-off" name="auto" value="off" onChange="startGraphTimer();" checked><label for="off">OFF</label>&nbsp;&nbsp;(turn off to pan/zoom graphs)
-  <table style='width:95%'>
+  <div id="ImpR"></div>
+  <div id="Sweep"></div>
+  <div id="AccXYZ"></div>
+  <!--<table style='width:95%'>
     <tr>
       <td style='width:50%'><div id="ImpI" ></div></td>
       <td style='width:50%'><div id="ImpV" ></div></td>
@@ -646,7 +671,7 @@ table, th, td {
       <td><div id="Sweep"></div></td>
       <td><div id="AccXYZ"></div></td>
     </tr>
-  </table>
+  </table>-->
   <H2>Log</H2>
   <button type="button" onclick="exportData();">Export Data</button>
   <button type="button" onClick="saveDebug();">Save Debug</button>
