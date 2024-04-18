@@ -359,11 +359,15 @@ function clearLog() {
 }
 
 function startLogTimer() {
-    document.getElementById("log").innerHTML = dlog.substring(0, 50000);
+    document.getElementById("log").innerHTML = log.substring(0, 50000);
     setTimeout(startLogTimer, 100);
 }
 
 function showLog() {
+    document.getElementById('log').innerHTML = log;
+}
+
+function showDebugLog() {
     document.getElementById('log').innerHTML = dlog;
 }
 
@@ -650,6 +654,7 @@ table, th, td {
   <br>
   <button type="button" onclick="clearLog();">Clear</button>
   <button type="button" onClick="showLog();">Show All</button>
+  <button type="button" onClick="showDebugLog();">Show Debug</button>
   <pre><div id="log">Javascript not enabled!<br></div></pre>
   <div id="result"></div>
 
