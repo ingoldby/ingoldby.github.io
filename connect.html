@@ -2,7 +2,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>BLE APP</title>
 </head>
-<body onload="clearLog();showGraph();">
+<body onload="clearLog();">
 <script>
 //BLE values
 var connectTrys = 0; retrys = 0;
@@ -44,42 +44,50 @@ function onDisconnected() {
 }
 
 function onStartButtonClick() {
-  let serviceUuid = document.querySelector('#service').value;
-  if (serviceUuid.startsWith('0x')) {
-    serviceUuid = parseInt(serviceUuid);
-  }
+    
+  serviceUuid = '891004fe-079d-4df2-85b3-36b30be1e662';
+  characteristicUuid = '425202f5-b945-46f4-a651-65413f4d85ea';
 
-  let characteristicUuid = document.querySelector('#characteristic').value;
-  if (characteristicUuid.startsWith('0x')) {
-    characteristicUuid = parseInt(characteristicUuid);
-  }
-
-  log('Requesting Bluetooth Device...');
+  addLog('Requesting Bluetooth Device...');
   navigator.bluetooth.requestDevice({filters: [{services: [serviceUuid]}]})
   .then(device => {
-    log('Connecting to GATT Server...');
+    addLog('Connecting to GATT Server...');
     return device.gatt.connect();
   })
   .then(server => {
-    log('Getting Service...');
+    addLog('Getting Service...');
     return server.getPrimaryService(serviceUuid);
   })
   .then(service => {
-    log('Getting Characteristic...');
+    addLog('Getting Characteristic...');
     return service.getCharacteristic(characteristicUuid);
   })
   .then(characteristic => {
     myCharacteristic = characteristic;
     return myCharacteristic.startNotifications().then(_ => {
-      log('> Notifications started');
+      addLog('> Notifications started');
       myCharacteristic.addEventListener('characteristicvaluechanged',
           handleNotifications);
     });
   })
   .catch(error => {
-    log('Argh! ' + error);
+    addLog('Argh! ' + error);
   });
 }
+function handleNotifications(event) {
+  let value = event.target.value;
+  let a = [];
+  // Convert raw data bytes to hex values just for the sake of showing something.
+  // In the "real" world, you'd use data.getUint8, data.getUint16 or even
+  // TextDecoder to process raw data bytes.
+  for (let i = 0; i < value.byteLength; i++) {
+    a.push('0x' + ('00' + value.getUint8(i).toString(16)).slice(-2));
+  }
+  log('> ' + a.join(' '));
+}
+
+
+//////////////////////////////////////////////////////////////////
 
 function connect() {
     var deviceOptions = {
