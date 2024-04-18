@@ -101,11 +101,6 @@ function connect() {
         deviceOptions.acceptAllDevices = false;
         deviceOptions.filters = [{ services: ['891004fe-079d-4df2-85b3-36b30be1e662']}];
     }
-    /*if (namePrefix) {
-        deviceOptions.acceptAllDevices = false;
-        deviceOptions.filters = namePrefix.split(",")
-            .map((x) => ({ namePrefix: x }));
-    }*/
 
     addLog(JSON.stringify(deviceOptions));
 
@@ -117,23 +112,12 @@ function connect() {
         bluetoothDevice = device;
         bluetoothDevice.addEventListener('gattserverdisconnected', onDisconnected);
         addLog("Connecting to: " + bluetoothDevice.name);
-        doConnect();
-    }).catch(handleError);
-}
-
-function doConnect() {
-    bluetoothDevice.gatt.connect().then(server => {
+        return bluetoothDevice.gatt.connect();
+    }).then(server => {
         addClog("Found GATT server");
         gattServer = server;
-        return gattServer.getPrimaryService('891004fe-079d-4df2-85b3-36b30be1e662');
-    }).then(service => {
-        addClog("Found service");
-        detectBreast();
-    }).catch(handleError);
-}
-
-function detectBreast() {
-    gattServer.getPrimaryServices().then(services => {
+        return gattServer.getPrimaryServices();//('891004fe-079d-4df2-85b3-36b30be1e662');
+    }).then(services => {
         breastEnabled = false;
         let queue = Promise.resolve();
         services.forEach(service => {
@@ -151,8 +135,9 @@ function detectBreast() {
             setStatus("Detected Nfant Breast");
             breastAction();
         } else {
-            addLog("Connected");
-            setStatus("Connected")
+            addLog("Breast service incorrect");
+            setStatus("Incorrect service");
+            disconnect();
         }
     }).catch(handleError);
 }
@@ -218,6 +203,10 @@ function clearLog() {
 
 function showLog() {
     document.getElementById('log').innerHTML = log;
+}
+
+function showDebugLog() {
+    document.getElementById('log').innerHTML = dlog;
 }
 
 function saveLog() {
@@ -317,6 +306,7 @@ table, th, td {
   <br>
   <button type="button" onclick="clearLog();">Clear</button>
   <button type="button" onClick="showLog();">Show All</button>
+  <button type="button" onClick="showDebugLog();">Show Debug</button>
   <pre><div id="log">Javascript not enabled!<br></div></pre>
   <div id="result"></div>
 
