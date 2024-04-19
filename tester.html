@@ -13,6 +13,7 @@ var busy, connected = false;
 
 var impT = [],  impIr=[],  impIi=[],  impVr=[],  impVi=[],  impZr=[],  impZi=[],  impR=[];
 var impT2 = [], impIr2=[], impIi2=[], impVr2=[], impVi2=[], impZr2=[], impZi2=[], impR2=[];
+var impTS = [], impIrS=[], impIiS=[], impVrS=[], impViS=[], impZrS=[], impZiS=[], impRS=[];
 var accT = [], accX = [], accY=[], accZ=[], accSum=[];
 
 
@@ -232,6 +233,7 @@ function handleImpNotifications(event)
          ' cnt:'     + cnt);
 }
 
+let count = 0;
 function handleSweepNotifications(event)
 {
   let value = event.target.value;
@@ -243,15 +245,55 @@ function handleSweepNotifications(event)
     a.push('0x' + ('00' + value.getUint8(i).toString(16)).slice(-2));
   }
   addClog('S> ' + a.join(' '));
+
   //addLog("Sweep:")
-  for(let i = value.byteLength/16-1; i >= 0; i--)
+  let start = 0;
+  let t = count++;
+  if(value.byteLength==180) {
+    start = 4;
+    t  = value.getUint32(0, true);
+  }
+
+  let ir = [];
+  let ii = [];
+  let vr = [];
+  let vi = [];
+  let zr = [];
+  let zi = [];
+  let r  = [];
+  for(let i = 0; i<(value.byteLength-start)/16;i++)
+  {
+    ir.push(value.getInt32(16*i+start   , true));
+    ii.push(value.getInt32(16*i+start+4 , true));
+    vr.push(value.getInt32(16*i+start+8 , true));
+    vi.push(value.getInt32(16*i+start+12, true));
+    const rscl = document.getElementById('Rscl').value;
+    const iscl = document.getElementById('Iscl').value;
+    const offset = document.getElementById('Offset').value;
+    zr.push(complex_div_R(vr.slice(-1),vi.slice(-1),ir.slice(-1),ii.slice(-1)));
+    zi.push(complex_div_I(vr.slice(-1),vi.slice(-1),ir.slice(-1),ii.slice(-1)));
+    r.push(-zr.slice(-1)*rscl-zi.slice(-1)*iscl+offset);
+  }
+  impTS.push(t);
+  impIrS.push(ir);
+  impIiS.push(ii);
+  impVrS.push(vr);
+  impViS.push(vi);
+  impZrS.push(zr);
+  impZiS.push(zi);
+  impRS.push(r);
+
+  console.log(r);
+
+  for(let i = (value.byteLength-start)/16-1; i >= 0; i--)
   //for(let i = 0; i < value.byteLength/16; i++)
     addLog(" " + (i*5000+5000) + "Hz:" +
-         ' Curr[r]:' + value.getInt32(16*i+0,  true) +
-         ' Curr[i]:' + value.getInt32(16*i+4,  true) +
-         ' Volt[r]:' + value.getInt32(16*i+8,  true) +
-         ' Volt[i]:' + value.getInt32(16*i+12, true) );
-  addLog("Sweep:")
+         ' Curr[r]:' + value.getInt32(16*i+start,   true) +
+         ' Curr[i]:' + value.getInt32(16*i+start+4, true) +
+         ' Volt[r]:' + value.getInt32(16*i+start+8, true) +
+         ' Volt[i]:' + value.getInt32(16*i+start+12,true) +
+         ' R:' + r[i]);
+  addLog("Sweep: Time:"+value.getUint32(0,true));
 }
 
 function handleAccelNotifications(event)
@@ -457,9 +499,6 @@ function hexToBytes(hex) {
 }
 
 function showGraph() {
-    //const xArray = [50,60,70,80,90,100,110,120,130,140,150];
-    //const yArray = [7,8,8,9,9,9,10,11,14,14,15];
-
     // Define Data
     const dataI = [
     { x: impT, y: impIr, mode:"lines", name:"Curr[r]", line:{color:'rgb(40 ,154,191)'}},
@@ -474,10 +513,20 @@ function showGraph() {
     { x: impT, y: impZi, mode:"lines", name:"Z[i]", line:{color:'rgb(77 ,190,216)'}},
     ];
     const dataR = [
-    { x: impT,  y: impR,  mode:"lines", name:"Resistance LF",    line:{color:'rgb(190,42 ,154)'}},
-    { x: impT2, y: impR2, mode:"lines", name:"Resistance HF",    line:{color:'rgb(50 ,100,168)'}},
+    { x: impT,  y: impR,  mode:"lines", name:"Resistance LF (5k)",    line:{color:'rgb(190,42 ,154)'}},
+    { x: impT2, y: impR2, mode:"lines", name:"Resistance HF (30k)",    line:{color:'rgb(50 ,100,168)'}},
     ];
     const dataSwp = [
+    { x: impTS,  y: impRS.map(d => d[0]),  mode:"lines", name:"5k",    },
+    { x: impTS,  y: impRS.map(d => d[1]),  mode:"lines", name:"10k",   },
+    { x: impTS,  y: impRS.map(d => d[2]),  mode:"lines", name:"15k",   },
+    { x: impTS,  y: impRS.map(d => d[3]),  mode:"lines", name:"20k",   },
+    { x: impTS,  y: impRS.map(d => d[4]),  mode:"lines", name:"25k",   },
+    { x: impTS,  y: impRS.map(d => d[5]),  mode:"lines", name:"30k",   },
+    { x: impTS,  y: impRS.map(d => d[6]),  mode:"lines", name:"35k",   },
+    { x: impTS,  y: impRS.map(d => d[7]),  mode:"lines", name:"40k",   },
+    { x: impTS,  y: impRS.map(d => d[8]),  mode:"lines", name:"45k",   },
+    { x: impTS,  y: impRS.map(d => d[9]),  mode:"lines", name:"50k",   },
 
     ];
     const dataA = [
@@ -504,13 +553,13 @@ function showGraph() {
     };
     const layoutR = {
         xaxis: { title: "Time"},
-        yaxis: { title: "Ohms"},  
+        yaxis: { title: "Resistance"},  
     title: "Resistance"
     };
     const layoutSwp = {
         xaxis: { title: "Time"},
-        yaxis: { title: "I/V sweep"},  
-    title: "Sweep (not implemented)"
+        yaxis: { title: "Resistance"},  
+    title: "Sweep frequencies"
     };
     const layoutA = {
         xaxis: { title: "Time"},
@@ -540,6 +589,8 @@ function resetGraph() {
     impZr = [], impZi = [], impR = [];
     impT2 = [], impIr2=[], impIi2=[], impVr2=[], impVi2=[];
     impZr2 = [], impZi2 = [], impR2 = [];
+    impTS = [], impIrS=[], impIiS=[], impVrS=[], impViS=[];
+    impZrS=[], impZiS=[], impRS=[];
     accT = [], accX = [], accY=[], accZ=[];
     accSum = [];
     showGraph();
