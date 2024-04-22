@@ -513,8 +513,8 @@ function showGraph() {
     { x: impT, y: impZi, mode:"lines", name:"Z[i]", line:{color:'rgb(77 ,190,216)'}},
     ];
     const dataR = [
-    { x: impT,  y: impR,  mode:"lines", name:"Resistance LF (5k)",    line:{color:'rgb(190,42 ,154)'}},
-    { x: impT2, y: impR2, mode:"lines", name:"Resistance HF (30k)",    line:{color:'rgb(50 ,100,168)'}},
+    { x: impT,  y: impR,  mode:"lines", name:"Resistance LF ",    line:{color:'rgb(190,42 ,154)'}},
+    { x: impT2, y: impR2, mode:"lines", name:"Resistance HF ",    line:{color:'rgb(50 ,100,168)'}},
     ];
     const dataSwp = [
     { x: impTS,  y: impRS.map(d => d[0]),  mode:"lines", name:"5k",    },
@@ -527,6 +527,7 @@ function showGraph() {
     { x: impTS,  y: impRS.map(d => d[7]),  mode:"lines", name:"40k",   },
     { x: impTS,  y: impRS.map(d => d[8]),  mode:"lines", name:"45k",   },
     { x: impTS,  y: impRS.map(d => d[9]),  mode:"lines", name:"50k",   },
+    { x: impTS,  y: impRS.map(d => d[10]), mode:"lines", name:"55k",   },
 
     ];
     const dataA = [
